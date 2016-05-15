@@ -9,34 +9,34 @@ from bson.json_util import dumps
 #init the db client
 client = MongoClient("mongo", 27017)
 db = client['jlog_db']
-#collection
-posts = db.posts
-
 
 #flask init
 app = Flask("jlog-api")
 app.secret_key='12345678'
 
-@app.route('/add_post', methods=['POST'])
-def add_post():
+@app.route('/add_post/<user>/<collection>', methods=['POST'])
+def add_post(user, collection):
     if request.method == 'POST':
         text = request.form['text']
-        oid = addPost(text)
+        category = request.form['category']
+        oid = addPost(text,user,collection, category)
         app.logger.info('Added post: ' + oid+' '+ text)
         return "Added post {}".format(oid)
 
-@app.route('/query', methods=['POST'])
-def queryPost():
-    if request.method =='POST':
-        query = json.loads(equest.form['query'])
-        posts.find(query)
+# @app.route('/query/', methods=['POST'])
+# def queryPost():
+#     if request.method =='POST':
+#         query = json.loads(equest.form['query'])
+#         posts.find(query,)
 
 
-def addPost(text):
+def addPost(text, user, collection, category):
     post = {
         "text": text,
         "timestamp": datetime.datetime.utcnow(),
-        "tags" : []
+        "tags" : [],
+        "user" : user,
+        "category": category
         }
     #reading metadata
     p_re = re.compile(r'@(?P<prop>.*?):(?P<value>.*?)(?=[\s#@]|$)')
@@ -55,7 +55,7 @@ def addPost(text):
     for t in t_re.finditer(text):
         post['tags'].append(t.group('tag'))
     #inserting in the dictionary
-    oid = posts.insert_one(post).inserted_id
+    oid = db[collection].insert_one(post).inserted_id
     return str(oid)
 
 if __name__ == '__main__':
