@@ -1,28 +1,35 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import re
+import json
 import datetime
 import logging
 from pymongo import MongoClient
+from bson.json_util import dumps
 
 #init the db client
 client = MongoClient("mongo", 27017)
-db = client['logbook_db']
+db = client['jlog_db']
 #collection
 posts = db.posts
 
 
 #flask init
-app = Flask("logbook_api")
-app.secret_key='ciaociao'
+app = Flask("jlog-api")
+app.secret_key='12345678'
 
 @app.route('/add_post', methods=['POST'])
 def add_post():
     if request.method == 'POST':
         text = request.form['text']
         oid = addPost(text)
-        app.logger.info('Added post: ' + oid+ text)
+        app.logger.info('Added post: ' + oid+' '+ text)
         return "Added post {}".format(oid)
 
+@app.route('/query', methods=['POST'])
+def queryPost():
+    if request.method =='POST':
+        query = json.loads(equest.form['query'])
+        posts.find(query)
 
 
 def addPost(text):
