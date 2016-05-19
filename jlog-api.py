@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import re
 import json
 import datetime
@@ -7,28 +7,46 @@ from pymongo import MongoClient
 from bson.json_util import dumps
 
 #init the db client
-client = MongoClient("mongo", 27017)
+client = MongoClient("localhost", 27017)
 db = client['jlog_db']
 
 #flask init
 app = Flask("jlog-api")
 app.secret_key='12345678'
 
-@app.route('/add_post/<user>/<collection>', methods=['POST'])
-def add_post(user, collection):
+@app.route('/0.1/<collection>/<user>', methods=['POST'])
+def add_post(collection,user):
     if request.method == 'POST':
-        text = request.form['text']
-        category = request.form['category']
+        data = request.get_json()
+        text = data['text']
+        category = data['category']
         oid = addPost(text,user,collection, category)
         app.logger.info('Added post: ' + oid+' '+ text)
-        return "Added post {}".format(oid)
+        return jsonify({"post_created": oid})
 
-# @app.route('/query/', methods=['POST'])
-# def queryPost():
-#     if request.method =='POST':
-#         query = json.loads(equest.form['query'])
-#         posts.find(query,)
+@app.route('/0.1/<collection>', methods=['POST'])
+def  getCollection(collection):
+        data = request.get_json()
+        coll = db[collection]
+        query_json = {}
 
+        if "tags" in data:
+            if len(data['tags'])>0:
+                query_json["tags"] = { "$all" : data['tags']}
+        if "user" in data:
+            query_json['user'] = data['user']
+        if "properties" in data:
+            for p in data['properties']:
+                query_json.update(p)
+        if "category" in data:
+            query_json = data['category']
+        #getting limit of n. of items
+        lim = data['limit']
+        app.logger.info("Query: {}".format(query_json))
+        #getting all documents in descending order
+        docs = [doc for doc in coll.find(query_json,limit=lim)
+                    .sort('timestamp',-1)]
+        return Response(dumps(docs), mimetype='application/json')
 
 def addPost(text, user, collection, category):
     post = {
@@ -41,7 +59,7 @@ def addPost(text, user, collection, category):
     #reading metadata
     p_re = re.compile(r'@(?P<prop>.*?):(?P<value>.*?)(?=[\s#@]|$)')
     t_re = re.compile(r'#(?P<tag>.*?)(?=[\s@#]|$)')
-    num_re = re.compile(r'^[\-]?[1-9][0-9]*\.?[0-9]+([eE][0-9])?$')
+    num_re = re.compile(r'^[\-]?[0-9]*\.?[0-9]+([eE][0-9]+)?$')
     #proprieties
     for m in p_re.finditer(text):
         prop = m.group('prop')
