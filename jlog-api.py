@@ -14,39 +14,40 @@ db = client['jlog_db']
 app = Flask("jlog-api")
 app.secret_key='12345678'
 
-@app.route('/0.1/<collection>/<user>', methods=['POST'])
-def add_post(collection,user):
+@app.route('/journal/<collection>', methods=['POST'])
+def add_post(collection):
     if request.method == 'POST':
         data = request.get_json()
-        text = data['text']
-        category = data['category']
-        oid = addPost(text,user,collection, category)
-        app.logger.info('Added post: ' + oid+' '+ text)
-        return jsonify({"post_created": oid})
+        if data['action'] == 'add':
+            text = data['text']
+            user = data['user']
+            print(text)
+            category = data['category']
+            oid = addPost(text,user,collection, category)
+            app.logger.info('Added post: ' + oid+' '+ text)
+            return jsonify({"post_created": oid})
+        elif data['action'] == 'query':
+            data = request.get_json()
+            coll = db[collection]
+            query_json = {}
+            if "tags" in data:
+                if len(data['tags'])>0:
+                    query_json["tags"] = { "$all" : data['tags']}
+            if "user" in data:
+                query_json['user'] = data['user']
+            if "properties" in data:
+                for p in data['properties']:
+                    query_json.update(p)
+            if "category" in data:
+                query_json = data['category']
+            #getting limit of n. of items
+            lim = data['limit']
+            app.logger.info("Query: {}".format(query_json))
+            #getting all documents in descending order
+            docs = [doc for doc in coll.find(query_json,limit=lim)
+                        .sort('timestamp',-1)]
+            return Response(dumps(docs), mimetype='application/json')
 
-@app.route('/0.1/<collection>', methods=['POST'])
-def  getCollection(collection):
-        data = request.get_json()
-        coll = db[collection]
-        query_json = {}
-
-        if "tags" in data:
-            if len(data['tags'])>0:
-                query_json["tags"] = { "$all" : data['tags']}
-        if "user" in data:
-            query_json['user'] = data['user']
-        if "properties" in data:
-            for p in data['properties']:
-                query_json.update(p)
-        if "category" in data:
-            query_json = data['category']
-        #getting limit of n. of items
-        lim = data['limit']
-        app.logger.info("Query: {}".format(query_json))
-        #getting all documents in descending order
-        docs = [doc for doc in coll.find(query_json,limit=lim)
-                    .sort('timestamp',-1)]
-        return Response(dumps(docs), mimetype='application/json')
 
 def addPost(text, user, collection, category):
     post = {
