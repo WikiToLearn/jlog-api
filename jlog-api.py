@@ -7,7 +7,7 @@ from pymongo import MongoClient
 from bson.json_util import dumps
 
 #init the db client
-client = MongoClient("localhost", 27017)
+client = MongoClient("mongo", 27017)
 db = client['jlog_db']
 
 #flask init
@@ -48,6 +48,10 @@ def add_post(collection):
                         .sort('timestamp',-1)]
             return Response(dumps(docs), mimetype='application/json')
 
+@app.route('/journal', methods=['GET'])
+def get_journals():
+    return Response(dumps(db.collection_names()),
+                          mimetype='application/json')
 
 def addPost(text, user, collection, category):
     post = {
