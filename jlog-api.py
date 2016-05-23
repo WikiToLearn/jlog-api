@@ -4,59 +4,73 @@ import json
 import datetime
 import logging
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 from bson.json_util import dumps
 
 #init the db client
-client = MongoClient("mongo", 27017)
+client = MongoClient("localhost", 27017)
 db = client['jlog_db']
 
 #flask init
 app = Flask("jlog-api")
 app.secret_key='12345678'
 
-@app.route('/journal/<collection>', methods=['POST'])
-def add_post(collection):
-    if request.method == 'POST':
-        data = request.get_json()
-        if data['action'] == 'add':
-            text = data['text']
-            user = data['user']
-            print(text)
-            category = data['category']
-            oid = addPost(text,user,collection, category)
-            app.logger.info('Added post: ' + oid+' '+ text)
-            return jsonify({"post_created": oid})
-        elif data['action'] == 'query':
-            data = request.get_json()
-            coll = db[collection]
-            query_json = {}
-            if "tags" in data:
-                if len(data['tags'])>0:
-                    query_json["tags"] = { "$all" : data['tags']}
-            if "user" in data:
-                query_json['user'] = data['user']
-            if "properties" in data:
-                for p in data['properties']:
-                    query_json.update(p)
-            if "category" in data:
-                query_json = data['category']
-            #getting limit of n. of items
-            lim = data['limit']
-            app.logger.info("Query: {}".format(query_json))
-            #getting all documents in descending order
-            docs = [doc for doc in coll.find(query_json,limit=lim)
-                        .sort('timestamp',-1)]
-            return Response(dumps(docs), mimetype='application/json')
-
 @app.route('/journal', methods=['GET'])
 def get_journals():
+    '''This method returns the list of journals'''
     return Response(dumps(db.collection_names()),
                           mimetype='application/json')
+
+@app.route('/journal/<collection>', methods=['POST'])
+def  add_post(collection):
+    '''This entrypoint adds a post to a journal'''
+    if request.method == 'POST':
+        data = request.get_json()
+        text = data['text']
+        user = data['user']
+        category = data['category']
+        oid = addPost(text,user,collection, category)
+        app.logger.info('Added post: ' + oid+' '+ text[:20])
+        return jsonify({"post_created": oid})
 
 @app.route('/journal/<collection>', methods=['DELETE'])
 def drop_collection(collection):
     db[collection].drop()
-    return "Deleted: "+ collection
+    return jsonify({"journal_deleted":  collection})
+
+
+@app.route('/journal/<collection>/query', methods=['POST'])
+def query_post(collection):
+    '''This entrypoint query a journal'''
+    if request.method == 'POST':
+        data = request.get_json()
+        coll = db[collection]
+        query_json = {}
+        if "tags" in data:
+            if len(data['tags'])>0:
+                query_json["tags"] = { "$all" : data['tags']}
+        if "user" in data:
+            query_json['user'] = data['user']
+        if "properties" in data:
+            for p in data['properties']:
+                query_json.update(p)
+        if "category" in data:
+            query_json = data['category']
+        #getting limit of n. of items
+        lim = data['limit']
+        app.logger.info("Query: {}".format(query_json))
+        #getting all documents in descending order
+        docs = [doc for doc in coll.find(query_json,limit=lim)
+                    .sort('timestamp',-1)]
+        return Response(dumps(docs), mimetype='application/json')
+
+
+@app.route('/journal/<collection>/<post_id>', methods=['GET'])
+def get_post(collection, post_id):
+    doc = db[collection].find_one({'_id':ObjectId(post_id)})
+    print(doc)
+    return Response(dumps(doc), mimetype='application/json')
+
 
 def addPost(text, user, collection, category):
     post = {
