@@ -24,14 +24,13 @@ def get_journals():
 @app.route('/journal/<collection>', methods=['POST'])
 def  add_post(collection):
     '''This entrypoint adds a post to a journal'''
-    if request.method == 'POST':
-        data = request.get_json()
-        text = data['text']
-        user = data['user']
-        category = data['category']
-        oid = addPost(text,user,collection, category)
-        app.logger.info('Added post: ' + oid+' '+ text[:20])
-        return jsonify({"post_created": oid})
+    data = request.get_json()
+    text = data['text']
+    user = data['user']
+    category = data['category']
+    oid = addPost(text,user,collection, category)
+    app.logger.info('Added post: ' + oid+' '+ text[:20])
+    return jsonify({"post_created": oid})
 
 @app.route('/journal/<collection>', methods=['DELETE'])
 def drop_collection(collection):
@@ -42,37 +41,44 @@ def drop_collection(collection):
 @app.route('/journal/<collection>/query', methods=['POST'])
 def query_post(collection):
     '''This entrypoint query a journal'''
-    if request.method == 'POST':
-        data = request.get_json()
-        coll = db[collection]
-        query_json = {}
-        if "tags" in data:
-            if len(data['tags'])>0:
-                query_json["tags"] = { "$all" : data['tags']}
-        if "user" in data:
-            query_json['user'] = data['user']
-        if "properties" in data:
-            for p in data['properties']:
-                query_json.update(p)
-        if "category" in data:
-            query_json = data['category']
-        #getting limit of n. of items
-        lim = data['limit']
-        app.logger.info("Query: {}".format(query_json))
-        #getting all documents in descending order
-        docs = [doc for doc in coll.find(query_json,limit=lim)
-                    .sort('timestamp',-1)]
-        return Response(dumps(docs), mimetype='application/json')
+    data = request.get_json()
+    coll = db[collection]
+    query_json = {}
+    if "tags" in data:
+        if len(data['tags'])>0:
+            query_json["tags"] = { "$all" : data['tags']}
+    if "user" in data:
+        query_json['user'] = data['user']
+    if "properties" in data:
+        for p in data['properties']:
+            query_json.update(p)
+    if "category" in data:
+        query_json = data['category']
+    #getting limit of n. of items
+    lim = data['limit']
+    app.logger.info("Query: {}".format(query_json))
+    #getting all documents in descending order
+    docs = [doc for doc in coll.find(query_json,limit=lim)
+                .sort('timestamp',-1)]
+    return Response(dumps(docs), mimetype='application/json')
 
 
 @app.route('/journal/<collection>/<post_id>', methods=['GET'])
 def get_post(collection, post_id):
+    '''Getting a specific post'''
     doc = db[collection].find_one({'_id':ObjectId(post_id)})
     print(doc)
     return Response(dumps(doc), mimetype='application/json')
 
+@app.route('/journal/<collection>/<post_id>', methods=['DELETE'])
+def drop_post(collection, post_id):
+    '''Deleting a specific post'''
+    db[collection].delete_one({"_id":ObjectId(post_id)})
+    return jsonify({"post_deleted": post_id})
 
 def addPost(text, user, collection, category):
+    '''This function extracts metadata from a post
+    and creates the document to insert in the db'''
     post = {
         "text": text,
         "timestamp": datetime.datetime.utcnow(),
