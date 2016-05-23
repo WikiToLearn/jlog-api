@@ -53,6 +53,11 @@ def get_journals():
     return Response(dumps(db.collection_names()),
                           mimetype='application/json')
 
+@app.route('/journal/<collection>', methods=['DELETE'])
+def drop_collection(collection):
+    db[collection].drop()
+    return "Deleted: "+ collection
+
 def addPost(text, user, collection, category):
     post = {
         "text": text,
