@@ -8,11 +8,11 @@ from bson.objectid import ObjectId
 from bson.json_util import dumps
 
 #init the db client
-client = MongoClient("localhost", 27017)
-db = client['jlog_db']
+client = MongoClient("mongodb", 27017)
+db = client['journal_db']
 
 #flask init
-app = Flask("jlog-api")
+app = Flask("journal-api")
 app.secret_key='12345678'
 
 @app.route('/journal', methods=['GET'])
@@ -36,6 +36,9 @@ def  add_post(collection):
 def drop_collection(collection):
     db[collection].drop()
     return jsonify({"journal_deleted":  collection})
+
+@app.route('/journal/<collection>', methods=['GET'])
+def get_collection_info(collection):
 
 
 @app.route('/journal/<collection>/query', methods=['POST'])

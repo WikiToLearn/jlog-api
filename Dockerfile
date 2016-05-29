@@ -9,7 +9,7 @@ COPY requirements.txt /app/
 WORKDIR /app
 RUN pip install -r requirements.txt
 
-COPY jlog-api.py .
+COPY journal-api.py .
 
 ENTRYPOINT ["python"]
-CMD ["jlog-api.py"]
+CMD ["journal-api.py"]
